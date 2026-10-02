@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2b579a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Worktime">
+<title>Worktime Tracker</title>
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    :root {
+        --primary: #2b579a;
+        --success: #28a745;
+        --danger: #dc3545;
+        --amber: #f0ad00;
+        --teal: #17a2b8;
+        --bg: #f1f4f9;
+        --card: #ffffff;
+        --text: #1b2230;
+        --muted: #5d6678;
+        --border: #dde2ea;
+        --tile: #f1f4f9;
+        --track: #e3e8ef;
+        --accent-tile: #e6f0fb;
+        --danger-tile: #fdf0f0;
+    }
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --primary: #2b579a;
+            --success: #3ecf6a;
+            --danger: #ff6b78;
+            --amber: #ffc83d;
+            --teal: #3cc3d9;
+            --bg: #0f1218;
+            --card: #1a1f29;
+            --text: #e8ebf1;
+            --muted: #9aa3b2;
+            --border: #2a3140;
+            --tile: #232a36;
+            --track: #2a3140;
+            --accent-tile: #1d2c44;
+            --danger-tile: #3a2227;
+        }
+    }
+
+    html, body { height: 100%; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+        -webkit-text-size-adjust: 100%;
+    }
+
+    .app {
+        max-width: 480px;
+        margin: 0 auto;
+        min-height: 100%;
+        padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+    }
+
+    /* Header */
+    .bar {
+        background: var(--primary);
+        color: #fff;
+        padding: calc(14px + env(safe-area-inset-top, 0px)) 18px 16px;
+    }
+    .bar-title { font-size: 13px; font-weight: 700; opacity: .85; }
+    .clock { font-size: 34px; font-weight: 700; line-height: 1.15; margin-top: 2px; letter-spacing: -.5px; }
+    .date { font-size: 13px; opacity: .85; margin-top: 2px; }
+
+    .wrap { padding: 14px 14px 0; display: grid; gap: 12px; }
+
+    .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 14px;
+    }
+
+    /* Inputs */
+    .inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+    .pair { display: flex; align-items: center; gap: 6px; }
+    .pair span { font-size: 24px; font-weight: 700; color: var(--muted); }
+    .pair input {
+        width: 100%;
+        min-width: 0;
+        height: 54px;
+        border: 1.5px solid var(--border);
+        border-radius: 10px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 26px; /* 16px+ prevents iOS zoom on focus */
+        font-weight: 700;
+        text-align: center;
+        font-family: inherit;
+        outline: none;
+    }
+    .pair input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(43,87,154,.25); }
+    .pair input::placeholder { color: var(--muted); opacity: .45; }
+
+    /* Hero */
+    .hero { text-align: center; padding: 18px 14px; }
+    .hero-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .hero-time { font-size: 46px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 4px; }
+    .hero-sub { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .hero-sub b { color: var(--text); }
+
+    /* Progress */
+    .bars { display: grid; gap: 12px; }
+    .bar-row-label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; }
+    .bar-row-label span:last-child { color: var(--muted); }
+    .track { height: 10px; background: var(--track); border-radius: 6px; overflow: hidden; }
+    .fill { height: 100%; width: 0%; border-radius: 6px; transition: width .4s ease, background-color .3s ease; }
+    #barHalfDay { background: var(--amber); }
+    #barShift { background: var(--success); }
+    #barWork { background: var(--teal); }
+
+    /* Metrics */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .tile { background: var(--tile); border-radius: 10px; padding: 10px 12px; }
+    .tile.wide { grid-column: span 2; }
+    .tile.accent { background: var(--accent-tile); border-left: 4px solid var(--primary); }
+    .tile.alert { background: var(--danger-tile); border-left: 4px solid var(--danger); }
+    .tile.alert .tile-title { color: var(--danger); }
+    .tile[hidden] { display: none; }
+    .tile-title { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+    .tile-value { font-size: 18px; font-weight: 700; }
+    .tile.accent .tile-value { font-size: 22px; }
+
+    .status-green { color: var(--success); }
+    .status-red { color: var(--danger); }
+
+    .reset {
+        display: block;
+        margin: 4px auto 0;
+        background: none;
+        border: none;
+        color: var(--muted);
+        font-size: 14px;
+        font-family: inherit;
+        padding: 10px 16px;
+        text-decoration: underline;
+    }
+
+    /* Mode switch */
+    .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--track); border-radius: 12px; padding: 4px; }
+    .seg button {
+        border: none; background: none; color: var(--muted);
+        font-family: inherit; font-size: 14px; font-weight: 700;
+        padding: 11px 8px; border-radius: 9px;
+    }
+    .seg button[aria-pressed="true"] { background: var(--card); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+    body[data-mode="off"] .bar { background: #23796a; }
+    body[data-mode="off"] .tile.accent { border-left-color: #23796a; }
+    body[data-mode="off"] .pair input:focus { border-color: #23796a; box-shadow: 0 0 0 3px rgba(35,121,106,.28); }
+</style>
+</head>
+<body>
+<div class="app">
+
+    <div class="bar">
+        <div class="bar-title">Worktime Tracker</div>
+        <div class="clock" id="lblClock">--:--:--</div>
+        <div class="date" id="lblDate"></div>
+    </div>
+
+    <div class="wrap">
+
+        <div class="seg" role="group" aria-label="Day type">
+            <button type="button" id="btnModeWork" aria-pressed="true">Working day</button>
+            <button type="button" id="btnModeOff" aria-pressed="false">Non-working day</button>
+        </div>
+
+        <div class="card inputs">
+            <div class="field">
+                <label for="txtFirstPunchIn">Punch in (HH:MM)</label>
+                <div class="pair">
+                    <input type="text" id="txtFirstPunchIn" placeholder="00" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Punch in hour">
+                    <span>:</span>
+                    <input type="text" id="txtFirstPunchIn2" placeholder="00" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Punch in minutes">
+                </div>
+            </div>
+            <div class="field">
+                <label for="txtHours">Break taken (HH:MM)</label>
+                <div class="pair">
+                    <input type="text" id="txtHours" placeholder="00" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Break hours">
+                    <span>:</span>
+                    <input type="text" id="txtMinutes" placeholder="00" maxlength="2" inputmode="numeric" pattern="[0-9]*" autocomplete="off" aria-label="Break minutes">
+                </div>
+            </div>
+        </div>
+
+        <div class="card hero">
+            <div class="hero-label">Punch out</div>
+            <div class="hero-time" id="lblPunchOut">--:-- --</div>
+            <div class="hero-sub" id="heroSub">Full shift <b>9h</b> with <b>80m</b> break allowance</div>
+        </div>
+
+        <div class="card bars">
+            <div>
+                <div class="bar-row-label"><span>Half day progress (4h work)</span><span id="lblHalfDayPercent">0%</span></div>
+                <div class="track"><div class="fill" id="barHalfDay"></div></div>
+            </div>
+            <div>
+                <div class="bar-row-label"><span id="lblShiftTitle">Full shift progress (9h)</span><span id="lblShiftPercent">0%</span></div>
+                <div class="track"><div class="fill" id="barShift"></div></div>
+            </div>
+            <div>
+                <div class="bar-row-label"><span id="lblWorkTitle">Pure work progress</span><span id="lblWorkPercent">0%</span></div>
+                <div class="track"><div class="fill" id="barWork"></div></div>
+            </div>
+        </div>
+
+        <div class="grid">
+            <div class="tile wide accent">
+                <div class="tile-title">Half day complete (4h work + break)</div>
+                <div class="tile-value status-green" id="lblHalfDayComplete">--:-- --</div>
+            </div>
+            <div class="tile wide alert" id="boxExtraBreak" hidden>
+                <div class="tile-title">Extra break taken</div>
+                <div class="tile-value status-red" id="lblExtraBreak">0h 0m</div>
+            </div>
+            <div class="tile">
+                <div class="tile-title" id="tBreak">Break left (of 80m)</div>
+                <div class="tile-value" id="lblBreakLeft">0 hour 0 minutes</div>
+            </div>
+            <div class="tile">
+                <div class="tile-title" id="tShift">Shift completion</div>
+                <div class="tile-value" id="lblExcludeBreak">--:-- --</div>
+            </div>
+            <div class="tile">
+                <div class="tile-title">Total completed</div>
+                <div class="tile-value" id="lblTotalCompleted">0h 0m</div>
+            </div>
+            <div class="tile">
+                <div class="tile-title">Total time left</div>
+                <div class="tile-value" id="lblTotalTimeLeft">0h 0m</div>
+            </div>
+            <div class="tile" id="boxWorkLeft">
+                <div class="tile-title">Work hours left</div>
+                <div class="tile-value" id="lblWorkHoursLeft">0h 0m</div>
+            </div>
+            <div class="tile" id="boxWorked">
+                <div class="tile-title">Actual worked time</div>
+                <div class="tile-value" id="lblTotalWorked">0h 0m</div>
+            </div>
+        </div>
+
+        <button class="reset" id="btnReset" type="button">Clear times</button>
+    </div>
+</div>
+
+<script>
+    const $ = (id) => document.getElementById(id);
+    const STORE_KEY = 'worktime-mobile-v1';
+
+    const ids = ['txtFirstPunchIn', 'txtFirstPunchIn2', 'txtHours', 'txtMinutes'];
+    const MODE_KEY = 'worktime-mode-v1';
+    let mode = 'work'; // 'work' = working day, 'off' = non-working day
+
+    function applyMode(m) {
+        mode = m;
+        const off = m === 'off';
+        document.body.dataset.mode = m;
+        $('btnModeWork').setAttribute('aria-pressed', String(!off));
+        $('btnModeOff').setAttribute('aria-pressed', String(off));
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', off ? '#23796a' : '#2b579a');
+        $('tBreak').innerText = off ? 'Break taken' : 'Break left (of 80m)';
+        $('tShift').innerText = off ? 'Day length (8h + break)' : 'Shift completion';
+        $('lblShiftTitle').innerText = off ? 'Full day progress (8h + break)' : 'Full shift progress (9h)';
+        $('lblWorkTitle').innerText = off ? 'Work progress (8h goal)' : 'Pure work progress';
+        $('heroSub').innerHTML = off
+            ? '<b>8h</b> of pure work, break time not counted'
+            : 'Full shift <b>9h</b> with <b>80m</b> break allowance';
+        $('boxWorkLeft').hidden = off;
+        $('boxWorked').classList.toggle('wide', off);
+        try { localStorage.setItem(MODE_KEY, m); } catch (e) {}
+        updateCalculations();
+    }
+    function loadMode() {
+        try { return localStorage.getItem(MODE_KEY) === 'off' ? 'off' : 'work'; } catch (e) { return 'work'; }
+    }
+
+    function fmtTime(date) {
+        let h = date.getHours();
+        const m = String(date.getMinutes()).padStart(2, '0');
+        const ap = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        return `${h}:${m} ${ap}`;
+    }
+
+    function hm(totalMin) {
+        return `${Math.floor(totalMin / 60)}h ${totalMin % 60}m`;
+    }
+
+    function todayKey() {
+        const d = new Date();
+        return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+    }
+
+    /* Optional convenience: remember today's times if the page is reloaded */
+    function saveInputs() {
+        try {
+            localStorage.setItem(STORE_KEY, JSON.stringify({
+                day: todayKey(),
+                v: ids.map(i => $(i).value)
+            }));
+        } catch (e) {}
+    }
+    function loadInputs() {
+        try {
+            const raw = localStorage.getItem(STORE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw);
+            if (data.day !== todayKey()) return;
+            ids.forEach((id, i) => { $(id).value = data.v[i] || ''; });
+        } catch (e) {}
+    }
+
+    function clearOutputs() {
+        $('lblPunchOut').innerText = '--:-- --';
+        $('lblHalfDayComplete').innerText = '--:-- --';
+        $('lblExcludeBreak').innerText = '--:-- --';
+        $('lblBreakLeft').innerText = '0 hour 0 minutes';
+        $('lblBreakLeft').className = 'tile-value';
+        $('boxExtraBreak').hidden = true;
+        ['lblTotalCompleted', 'lblTotalTimeLeft', 'lblWorkHoursLeft', 'lblTotalWorked'].forEach(id => {
+            $(id).innerText = '0h 0m';
+            $(id).className = 'tile-value';
+        });
+        [['barHalfDay', 'lblHalfDayPercent'], ['barShift', 'lblShiftPercent'], ['barWork', 'lblWorkPercent']].forEach(([b, l]) => {
+            $(b).style.width = '0%';
+            $(l).innerText = '0%';
+        });
+        $('barWork').style.backgroundColor = '';
+    }
+
+    // Non-working day: 8h of pure work + whatever break was taken
+    function renderOffDay(now, firstPunchIn, breakTakenMinutes) {
+        const workGoal = 8 * 60;
+        const halfGoal = 4 * 60;
+        const dayMinutes = workGoal + breakTakenMinutes;
+        const punchOut = new Date(firstPunchIn.getTime() + dayMinutes * 60000);
+
+        $('boxExtraBreak').hidden = true;
+        $('lblPunchOut').innerText = fmtTime(punchOut);
+        $('lblHalfDayComplete').innerText = fmtTime(new Date(firstPunchIn.getTime() + (halfGoal + breakTakenMinutes) * 60000));
+        $('lblBreakLeft').innerText = hm(breakTakenMinutes);
+        $('lblBreakLeft').className = 'tile-value';
+        $('lblExcludeBreak').innerText = hm(dayMinutes);
+
+        const completedMs = Math.max(0, now.getTime() - firstPunchIn.getTime());
+        const totalCompMin = Math.floor(completedMs / 60000);
+        $('lblTotalCompleted').innerText = hm(totalCompMin);
+
+        const leftMs = punchOut.getTime() - now.getTime();
+        const lblLeft = $('lblTotalTimeLeft');
+        if (leftMs <= 0) {
+            lblLeft.innerText = 'Work Completed';
+            lblLeft.className = 'tile-value status-green';
+        } else {
+            lblLeft.innerText = hm(Math.floor(leftMs / 60000));
+            lblLeft.className = 'tile-value status-red';
+        }
+
+        const workedMin = Math.max(0, totalCompMin - breakTakenMinutes);
+        $('lblTotalWorked').innerText = hm(workedMin);
+
+        const half = Math.min(100, workedMin / halfGoal * 100);
+        $('barHalfDay').style.width = half + '%';
+        $('lblHalfDayPercent').innerText = Math.round(half) + '%';
+
+        const day = Math.min(100, totalCompMin / dayMinutes * 100);
+        $('barShift').style.width = day + '%';
+        $('lblShiftPercent').innerText = Math.round(day) + '%';
+
+        const work = Math.min(100, workedMin / workGoal * 100);
+        $('barWork').style.backgroundColor = 'var(--teal)';
+        $('barWork').style.width = work + '%';
+        $('lblWorkPercent').innerText = Math.round(work) + '%';
+    }
+
+    function updateCalculations() {
+        const now = new Date();
+
+        // Live clock
+        let h = now.getHours();
+        const ap = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+        $('lblClock').innerText =
+            `${h}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')} ${ap}`;
+        $('lblDate').innerText = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        const pinHHVal = $('txtFirstPunchIn').value;
+        const pinMMVal = $('txtFirstPunchIn2').value;
+        if (pinHHVal === '' || pinMMVal === '') { clearOutputs(); return; }
+
+        const pinHH = parseInt(pinHHVal, 10) || 0;
+        const pinMM = parseInt(pinMMVal, 10) || 0;
+        const breakHH = parseInt($('txtHours').value, 10) || 0;
+        const breakMM = parseInt($('txtMinutes').value, 10) || 0;
+
+        const firstPunchIn = new Date();
+        firstPunchIn.setHours(pinHH, pinMM, 0, 0);
+
+        const breakTakenMinutes = breakHH * 60 + breakMM;
+        if (mode === 'off') { renderOffDay(now, firstPunchIn, breakTakenMinutes); return; }
+        const allowedBreakMinutes = 80;
+        const totalShiftHours = 9;
+        const halfDayHours = 4;
+
+        const punchOut = new Date(firstPunchIn.getTime() + totalShiftHours * 3600000);
+        const breakLeft = allowedBreakMinutes - breakTakenMinutes;
+        const excludeBreakPunchOut = new Date(punchOut.getTime() - breakLeft * 60000);
+
+        // Over-break handling
+        const lblBreakLeft = $('lblBreakLeft');
+        const barWork = $('barWork');
+        if (breakLeft < 0) {
+            lblBreakLeft.innerText = '0 hour 0 minutes';
+            lblBreakLeft.className = 'tile-value status-red';
+            $('lblExtraBreak').innerText = hm(Math.abs(breakLeft));
+            $('boxExtraBreak').hidden = false;
+            barWork.style.backgroundColor = 'var(--danger)';
+        } else {
+            lblBreakLeft.innerText = `${Math.floor(breakLeft / 60)} hour ${breakLeft % 60} minutes`;
+            lblBreakLeft.className = 'tile-value status-green';
+            $('boxExtraBreak').hidden = true;
+            barWork.style.backgroundColor = 'var(--teal)';
+        }
+
+        // Punch out predictions
+        const correctPunchOut = breakLeft < 0 ? excludeBreakPunchOut : punchOut;
+        $('lblPunchOut').innerText = fmtTime(correctPunchOut);
+        $('lblExcludeBreak').innerText = fmtTime(excludeBreakPunchOut);
+
+        // Half day: 4 pure work hours + break taken
+        const halfDayComplete = new Date(firstPunchIn.getTime() + halfDayHours * 3600000 + breakTakenMinutes * 60000);
+        $('lblHalfDayComplete').innerText = fmtTime(halfDayComplete);
+
+        // Total completed
+        let completedMs = now.getTime() - firstPunchIn.getTime();
+        if (completedMs < 0) completedMs = 0;
+        const totalCompMin = Math.floor(completedMs / 60000);
+        $('lblTotalCompleted').innerText = hm(totalCompMin);
+
+        // Total time left
+        const leftMs = punchOut.getTime() - now.getTime();
+        const lblLeft = $('lblTotalTimeLeft');
+        if (leftMs <= 0) {
+            lblLeft.innerText = 'Shift Completed';
+            lblLeft.className = 'tile-value status-green';
+        } else {
+            lblLeft.innerText = hm(Math.floor(leftMs / 60000));
+            lblLeft.className = 'tile-value status-red';
+        }
+
+        // Work hours left
+        const workLeftMs = excludeBreakPunchOut.getTime() - now.getTime();
+        const lblWork = $('lblWorkHoursLeft');
+        if (workLeftMs <= 0) {
+            lblWork.innerText = 'Work Completed';
+            lblWork.className = 'tile-value status-green';
+        } else {
+            lblWork.innerText = hm(Math.floor(workLeftMs / 60000));
+            lblWork.className = 'tile-value status-red';
+        }
+
+        // Actual worked
+        const totalWorkedMin = Math.max(0, totalCompMin - breakTakenMinutes);
+        $('lblTotalWorked').innerText = hm(totalWorkedMin);
+
+        // Progress bars
+        const half = Math.min(100, Math.max(0, totalWorkedMin / (halfDayHours * 60) * 100));
+        $('barHalfDay').style.width = half + '%';
+        $('lblHalfDayPercent').innerText = Math.round(half) + '%';
+
+        const shift = Math.min(100, Math.max(0, totalCompMin / (totalShiftHours * 60) * 100));
+        $('barShift').style.width = shift + '%';
+        $('lblShiftPercent').innerText = Math.round(shift) + '%';
+
+        const pureGoal = totalShiftHours * 60 - allowedBreakMinutes;
+        const work = Math.min(100, Math.max(0, totalWorkedMin / pureGoal * 100));
+        $('barWork').style.width = work + '%';
+        $('lblWorkPercent').innerText = Math.round(work) + '%';
+    }
+
+    // Digits only, auto-advance after 2 digits, recalc + save on every change
+    ids.forEach((id, i) => {
+        const el = $(id);
+        el.addEventListener('input', () => {
+            el.value = el.value.replace(/\D/g, '').slice(0, 2);
+            if (el.value.length === 2) {
+                if (i < ids.length - 1) $(ids[i + 1]).focus();
+                else el.blur();
+            }
+            saveInputs();
+            updateCalculations();
+        });
+        el.addEventListener('focus', () => el.select());
+        el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { el.blur(); updateCalculations(); }
+            if (e.key === 'Backspace' && el.value === '' && i > 0) $(ids[i - 1]).focus();
+        });
+    });
+
+    $('btnReset').addEventListener('click', () => {
+        ids.forEach(id => { $(id).value = ''; });
+        saveInputs();
+        updateCalculations();
+        $('txtFirstPunchIn').focus();
+    });
+
+    // Keep numbers fresh when returning to the app
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) updateCalculations(); });
+
+    $('btnModeWork').addEventListener('click', () => applyMode('work'));
+    $('btnModeOff').addEventListener('click', () => applyMode('off'));
+
+    loadInputs();
+    applyMode(loadMode());
+    setInterval(updateCalculations, 1000);
+</script>
+</body>
+</html>
